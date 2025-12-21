@@ -1,7 +1,7 @@
 import time
 print("\n*** INITIALIZING ***")
 start_time = time.time()
-
+import json, re
 from typing import TypedDict, List, Any
 from langgraph.graph import StateGraph, END
 from mcp_server.agents.schemas import HopBreak, TraceEvent
@@ -9,6 +9,7 @@ from mcp_server.agents.breaks_agent import explain_breaks
 from mcp_server.agents.router_agent import route_question
 from mcp_server.agents.general_agent import answer_general_question
 from mcp_server.agents.session_types import SessionMemory
+from mcp_server.tools.txn_mcp_client import fetch_transactions
 from app.sql_client_async import get_top_breaks_sql
 from utils.session_store import load_session, save_session
 from fastapi.encoders import jsonable_encoder
@@ -132,6 +133,26 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
         "trace": trace
     }
 
+async def txn_mcp_test_node(state: BreaksGraphState) -> BreaksGraphState:
+    user_q = state.get("user_question", "")
+    hop_id = extract_hop_id(user_q) or "16"  # fallback for test
+
+    resp = await fetch_transactions(hop_id=hop_id, limit_return=20)
+    rows = resp.get("rows", []) if isinstance(resp, dict) else []
+
+    state["analysis"] = (
+        f"MCP test OK\n"
+        f"hop_id={hop_id}\n"
+        f"rows_returned={len(rows)}"
+    )
+
+    session = state.get("session", {}) or {}
+    session.setdefault("last_tool_outputs", {})
+    session["last_tool_outputs"]["txn_details_test"] = resp
+    state["session"] = session
+
+    return state
+
 def general_qa_node(state: BreaksGraphState) -> BreaksGraphState:
     user_q = state["user_question"]
     trace: List[TraceEvent] = state.get("trace", [])
@@ -236,6 +257,11 @@ async def handle_user_turn(user_id: str, session_id: str, user_question: str) ->
 
     # If your FastAPI endpoint returns state directly, this prevents serialization issues:
     return _to_jsonable(state)
+
+def extract_hop_id(text: str) -> str | None:
+    # very simple heuristic; adjust as needed
+    m = re.search(r"\bHOP[_-]?\w+\b", text.upper())
+    return m.group(0) if m else None
 
 def _split_explanation_and_commentary(text: str) -> tuple[str, str]:
     explanation = text
