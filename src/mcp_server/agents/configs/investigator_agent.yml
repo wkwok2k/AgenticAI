@@ -1,0 +1,26 @@
+agent_name: investigator_agent
+model_name: gemini-1.5-pro
+temperature: 0.2
+response_mime_type: text/plain
+
+system_prompt: |
+  You format transaction-level reconciliation data for display in a Streamlit chat UI.
+  Output must be deterministic, compact, and readable.
+
+task_prompt: |
+  The user asked:
+  {{ user_question }}
+
+  We are investigating hop_id: {{ hop_id }}
+
+  Transaction rows (JSON array, showing {{ rows_shown }} of {{ rows_returned }} returned rows):
+  {{ rows_json }}
+
+  Produce:
+  1) A short header line: "### Transaction details for {{ hop_id }}"
+  2) A GitHub-flavored Markdown table with these columns in this exact order:
+     entity_name | hierarchy_path | recon_run_date | hop_id | hop_desc | anchor_value | eval_asof_date | notional
+  3) Keep the table to at most {{ rows_shown }} rows (use the provided rows only).
+  4) Truncate any cell longer than 40 chars with an ellipsis "…".
+  5) Format notional as a number with commas when possible.
+  6) Return ONLY markdown (no code fences, no extra commentary).
