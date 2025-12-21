@@ -76,7 +76,7 @@ class VertexGenAI:
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """Generate plain/text content using Gemini."""
-        step_log(message: "AgenticAI - generate_content: Start", 0)
+        step_log("AgenticAI - generate_content: Start", 0)
         start_time = time.time()
 
         model = self._build_model(
@@ -91,11 +91,11 @@ class VertexGenAI:
             resp = model.generate_content(input_prompt) # metadata=self.metadata,
         except Exception as e:
             elapsed_time = time.time() - start_time
-            step_log( message: f"AgenticAI - generate_content: Error {e}", elapsed_time)
+            step_log(f"AgenticAI - generate_content: Error {e}", elapsed_time)
             raise
 
         elapsed_time = time.time() - start_time
-        step_log( message: "AgenticAI - generate_content: Completed", elapsed_time)
+        step_log("AgenticAI - generate_content: Completed", elapsed_time)
 
         self._log_entry(
             {
@@ -127,7 +127,7 @@ class VertexGenAI:
         """Generate JSON using response_mime_type = "application/json"
             Returns a python dict. If parsing fails, returns {"error", "..."}"""
         start_time = time.time()
-        step_log(message: "AgenticAI - generate_content_jsons Start", 0)
+        step_log("AgenticAI - generate_content_jsons Start", 0)
 
         model = self._build_model(
             system_prompt = system_prompt,
@@ -141,11 +141,11 @@ class VertexGenAI:
             resp = model.generate_content(input_prompt)  # metadata=self.metadata
         except Exception as e:
             elapsed_time = time.time() - start_time
-            step_log(message: f"AgenticAI - generate_content_json: Error {e}, traceback: {traceback.format_exc()}", elapsed_time)
+            step_log(f"AgenticAI - generate_content_json: Error {e}, traceback: {traceback.format_exc()}", elapsed_time)
             return {"error": str(e)}
 
         elapsed_time = time.time() - start_time
-        step_log(message: f"AgenticAI - generate_content_json: Completed", elapsed_time)
+        step_log(f"AgenticAI - generate_content_json: Completed", elapsed_time)
 
         self._log_entry(
             {
@@ -258,7 +258,7 @@ class VertexGenAI:
 
         # Render prompts (StrictUndefined will throw if user_question is missing)
         system_prompt = self._render(system_prompt_template, template_vars or {}) if system_prompt_template.strip() else ""
-        input_prompt = self._render(task_prompt_template, template_vars or {}) if task_prompt_template.strip() or ""
+        input_prompt = self._render(task_prompt_template, template_vars or {}) if task_prompt_template.strip() else ""
 
         if not input_prompt or not str(input_prompt).strip():
             raise ValueError(

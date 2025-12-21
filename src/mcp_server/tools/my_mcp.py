@@ -9,7 +9,7 @@ class McpProcessor:
     @staticmethod
     async def run_query(query):
         try:
-            async with sse_client(url="http://localhost:7000/sse") as stream:
+            async with sse_client(url="http://localhost:7000/query") as streams:
                 try:
                     async with ClientSession(*streams) as session:
                         await session.initialize()

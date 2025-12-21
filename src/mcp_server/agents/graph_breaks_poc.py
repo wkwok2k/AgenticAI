@@ -60,26 +60,40 @@ def router_node(state: BreaksGraphState) -> BreaksGraphState:
         "trace": trace,
     }
 
-def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
+async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
     """ Second agent: if tool is get_top_breaks, run the breaks analysis. """
-    start_time - time. time()
+    start_time = time.time()
     step_log("AgenticAI - breaks_node: Start", 0)
 
     user_q = state["user_question"]
     trace: List[TraceEvent] = state.get("trace", [])
     session = state.get("session", ())
 
-    # breaks: List[HopBreak] - mock_top2_hop_breaks()
-    breaks: List[HopBreak] = get_top_breaks_sql()
+    breaks: List[HopBreak] = await get_top_breaks_sql()  # ✅ await the async function
     print(breaks)
-    hop_ids = [b.get("hop_id") for b in (breaks or []) if isinstance(b, dict) and b.get("hop_id")]
+
+    hop_ids = [
+        b.get("hop_id")
+        for b in (breaks or [])
+        if isinstance(b, dict) and b.get("hop_id")
+    ]
+
+    trace.append({
+        "node": "breaks_node",
+        "event": "fetched_breaks",
+        "extra": {"hop_ids": hop_ids, "row_count": len(breaks or [])},
+    })
+
+    # (optional) store in session so you can see it in your logs
+    session.setdefault("last_tool_outputs", {})
+    session["last_tool_outputs"]["breaks"] = breaks
 
     # Debug trace entry so you can see what tool we think we have
     trace.append(
         {
             "node": "Breaks Analysis Agent",
             "stage": "tool_call",
-            "message": "Fetch top 2 breaks from MCP server.",
+            "message": "Fetch top breaks from MCP server.",
             "extra": {"hop_ids": hop_ids, "row_count": len(breaks or [])},
         }
     )
@@ -177,7 +191,7 @@ def build_breaks_poc_graph():
     return graph.compile()
 
 # ---------------- Helper -----------------
-def handle_user_turn(user_id: str, session_id: str, user_question: str) -> BreaksGraphState:
+async def handle_user_turn(user_id: str, session_id: str, user_question: str) -> BreaksGraphState:
     mem = load_session(user_id, session_id)
 
     # Safeguards for brand-new / older sessions missing keys
@@ -192,7 +206,7 @@ def handle_user_turn(user_id: str, session_id: str, user_question: str) -> Break
 
     # Run graph with session injected
     app = build_breaks_poc_graph()
-    state: BreaksGraphState = app.invoke({"user_question": user_question, "trace": [], "session": mem})
+    state: BreaksGraphState = await app.ainvoke({"user_question": user_question, "trace": [], "session": mem})
 
     # Persist assistant answer to memory
     assistant_answer = (state.get("analysis") or "").strip()
@@ -233,7 +247,7 @@ def _split_explanation_and_commentary(text: str) -> tuple[str, str]:
     return explanation, commentary
 
 def _route_next(state: BreaksGraphState) -> str:
-    return "break_analysis" if state.get("selected_tool") == "get_top_breaks" else "general_qa"
+    return "breaks_analysis" if state.get("selected_tool") == "get_top_breaks" else "general_qa"
 
 def _to_jsonable(obj: Any) -> Any:
     return jsonable_encoder(obj)
@@ -244,6 +258,11 @@ def run_breaks_poc(user_question: str) -> BreaksGraphState:
     final_state = app.invoke({"user_question": user_question, "trace": []})
     return final_state
 
+async def run_breaks_poc_async(user_question: str) -> BreaksGraphState:
+    app = build_breaks_poc_graph()
+    final_state = await app.ainvoke({"user_question": user_question, "trace": []})
+    return final_state
+
 # --------------- CLI ---------------
 if __name__ == "__main__":
     q = "Show me the top 2 hop-level breaks and explain what the stats are telling us."
@@ -251,7 +270,8 @@ if __name__ == "__main__":
     step_log("AgenticAI INIT: Start", 0)
     step_log("AgenticAI - INIT: Completed", elapsed)
 
-    result = run_breaks_poc(q)
+    import asyncio
+    result = asyncio.run(run_breaks_poc_async(q))
 
     print("\n=== ANALYSIS (FINAL) ===")
     print(result.get("analysis", "[no analysis produced]"))
