@@ -58,3 +58,25 @@ def markdown_table_to_df(table_md: str):
         return None
 
     return pd.DataFrame(rows, columns=header)
+
+analysis_text = data.get("analysis", "") or ""
+
+prefix, table_md, suffix = split_markdown_table(analysis_text)
+
+# Render non-table text normally
+if prefix:
+    st.markdown(prefix)
+
+# Render table as dataframe to prevent bleed
+df = markdown_table_to_df(table_md) if table_md else None
+if df is not None:
+    st.dataframe(df, use_container_width=True, hide_index=True)
+else:
+    # If table detection failed, just show the whole analysis as markdown
+    if analysis_text and not prefix:
+        st.markdown(analysis_text)
+
+# Render any trailing text
+if suffix:
+    st.markdown(suffix)
+
