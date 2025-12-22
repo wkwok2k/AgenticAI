@@ -39,15 +39,30 @@ def split_markdown_table(md: str):
 
 
 def markdown_table_to_df(table_md: str):
-    if not table_md:
+    if not table_md or "|" not in table_md:
         return None
 
-    table_lines = [ln.strip() for ln in table_md.splitlines() if ln.strip()]
+    lines = [ln.strip() for ln in table_md.splitlines() if ln.strip()]
+    # Find first table header + separator
+    start = None
+    for i in range(len(lines) - 1):
+        if "|" in lines[i] and "|" in lines[i+1] and set(lines[i+1].replace("|", "").strip()) <= set("-: "):
+            start = i
+            break
+    if start is None:
+        return None
+
+    table_lines = []
+    for j in range(start, len(lines)):
+        if "|" in lines[j]:
+            table_lines.append(lines[j])
+        else:
+            break
+
     if len(table_lines) < 3:
         return None
 
     header = [c.strip() for c in table_lines[0].strip("|").split("|")]
-    # table_lines[1] is separator
     rows = []
     for ln in table_lines[2:]:
         cols = [c.strip() for c in ln.strip("|").split("|")]
@@ -58,7 +73,6 @@ def markdown_table_to_df(table_md: str):
         return None
 
     return pd.DataFrame(rows, columns=header)
-
 analysis_text = data.get("analysis", "") or ""
 
 prefix, table_md, suffix = split_markdown_table(analysis_text)
