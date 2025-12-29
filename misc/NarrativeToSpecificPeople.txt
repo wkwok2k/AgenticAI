@@ -1,0 +1,28 @@
+Kumar
+“Kumar, models will keep getting better for everyone. The only durable advantage is a system that remembers, learns, and adapts in our customers’ domain.”
+“What we’re building isn’t an AI feature—it’s the memory and decision layer that future AI capabilities will plug into.”
+“Five years from now, customers won’t ask ‘how smart is your model?’ They’ll ask ‘how well does your system understand my business?’”
+“Models commoditize. Institutional memory compounds.”
+Anubhav
+“Anubhav, this is deliberately not autonomy-first. It’s memory-first, trace-first, explainability-first.”
+“Every agent action is auditable. Every conclusion has receipts. Every learning loop can be reviewed or rolled back.”
+“This lets us give customers better answers without taking control away from them.”
+“We’re not automating decisions—we’re improving decision quality with full traceability.”
+Aditya
+“Aditya, the key idea is that we’ve separated reasoning, memory, and execution into explicit system components.”
+“The Oracle isn’t an LLM—it’s a memory substrate with indexing, summarization, and retrieval policies.”
+“Agents don’t get smarter because the model changes—they get smarter because the system accumulates high-quality reasoning artifacts.”
+“This is cognitive decomposition plus a decision control plane, not a chatbot.”
+Rajat
+“Rajat, anyone can wire up agents and tools. What’s hard to copy is years of domain-specific reasoning traces.”
+“Our system doesn’t just answer questions—it remembers how problems were solved, what worked, and what didn’t.”
+“That means every customer deployment makes the product better in ways competitors can’t replicate quickly.”
+“Our moat isn’t agents—it’s accumulated judgment.”
+Vishram
+“Vishram, nothing here requires new model training or exotic infra.”
+“We’re using existing components—storage, search, orchestration—but composing them differently.”
+“Each piece can fail independently. Each agent can be upgraded independently. Memory grows without increasing prompt size.”
+“This is evolutionary, not revolutionary—from an engineering standpoint.”
+Everyone
+“This is a beta not because it’s fragile—but because we’re early in a long compounding curve.”
+“What matters isn’t what the system knows today, but that it gets better at knowing tomorrow.”
