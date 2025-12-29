@@ -47,7 +47,7 @@ def router_node(state: BreaksGraphState) -> BreaksGraphState:
             "node": "Router Agent",
             "stage": "routing",
             "message": reason,
-            "extra": {"selected_tool": tool_name},
+            "extra": {"selected_tool": tool_name, "message": str(routing)},
         }
     )
 
@@ -68,7 +68,6 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
 
     user_q = state["user_question"]
     trace: List[TraceEvent] = state.get("trace", [])
-    session = state.get("session", ())
 
     breaks: List[HopBreak] = await get_top_breaks_sql()  # ✅ await the async function
     print(breaks)
@@ -86,6 +85,7 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
     })
 
     # (optional) store in session so you can see it in your logs
+    session = state.get("session", {}) or {}
     session.setdefault("last_tool_outputs", {})
     session["last_tool_outputs"]["breaks"] = breaks
 
@@ -133,7 +133,7 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
         "trace": trace
     }
 
-async def txn_mcp_test_node(state: BreaksGraphState) -> BreaksGraphState:
+async def investigator_node(state: BreaksGraphState) -> BreaksGraphState:
     user_q = state.get("user_question", "")
     hop_id = extract_hop_id(user_q) or "16"  # fallback for test
 
