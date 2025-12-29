@@ -1,0 +1,57 @@
+Minute 0:00–0:45 — Set the frame (Kumar, whole room)
+
+“Before we talk about features or demos, I want to reset the frame.”
+“What you’re about to see is not a chatbot on top of a database. We’ve all seen that. This is something different.”
+“Models are getting better every year for everyone. That’s not where differentiation will live.”
+“The real question is: how does intelligence accumulate inside a system over time?”
+“What we’re building is our answer to that.”
+
+Minute 0:45–1:45 — What we built (Aditya, Vishram)
+
+“Instead of one monolithic AI, we’ve built a small team of agents—each with a distinct role—designed to collaborate the way a real analyst team would.”
+“One agent decides what matters. One analyzes impact. One investigates root causes. One explains results in human terms.”
+“The key architectural idea is separation of concerns:
+  - reasoning is decomposed,
+  - memory is externalized,
+  - and execution happens through tools.”
+“This isn’t prompt choreography. It’s a control plane for reasoning.”
+“Each agent can evolve independently. Nothing is hard-coded into a single prompt.”
+
+Minute 1:45–2:45 — The real shift (Anubhav, skeptics)
+
+“The real shift isn’t that AI answers better questions.”
+“The shift is that humans no longer have to decide how to interrogate data step by step.”
+“We’re delegating that thinking to the system—while keeping everything auditable, explainable, and reversible.”
+“Every investigation has traces.
+  - Every conclusion has receipts.
+  - Every learning loop can be reviewed or rolled back.”
+“This is not autonomy-first. It’s judgment-first.”
+
+Minute 2:45–3:45 — Why this gets better over time (Rajat, competitive lens)
+
+“Most AI systems answer questions and forget.”
+“Our system remembers how problems were solved.”
+“Each investigation leaves behind artifacts:
+  - what we looked at,
+  - what worked,
+  - what didn’t,
+  - and what mattered.”
+“Over time, that becomes institutional memory the system can reuse.”
+“This is how intelligence compounds without retraining models.”
+“Anyone can copy agents. What’s hard to copy is years of accumulated judgment inside customer workflows.”
+
+Minute 3:45–4:30 — Why this is a beta (everyone)
+
+“This is a beta not because it’s fragile, but because we’re early in a compounding curve.”
+“Today, the agents are constrained to financial impact analysis. That constraint is a sandbox—not a limitation.”
+“The architecture doesn’t change when we expand domains. Only the tools and memory do.”
+“What matters isn’t what the system knows today—it’s that it gets better at knowing tomorrow.”
+
+Minute 4:30–5:00 — Close with alignment (strong ending)
+
+“We’re not claiming this is AGI.”
+“We’re claiming this is the smallest viable system that can:
+  - decide what matters,
+  - explain why it decided,
+  -  and improve how it decides over time.”
+“Models will commoditize. Institutional memory compounds.”
