@@ -1,0 +1,54 @@
+{
+  "paths": [
+    {
+      "prev_hop_id": "16*",
+      "hop_id": "21*",
+      "next_hop_id": ""
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "581",
+      "next_hop_id": "21*"
+    },
+    {
+      "prev_hop_id": "2095",
+      "hop_id": "16*",
+      "next_hop_id": "21*"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "2096",
+      "next_hop_id": "2095"
+    },
+    {
+      "prev_hop_id": "2094",
+      "hop_id": "2095",
+      "next_hop_id": "16*"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "4*",
+      "next_hop_id": "16*"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "5019",
+      "next_hop_id": "2095"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "9",
+      "next_hop_id": "2095"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "3",
+      "next_hop_id": "2095"
+    },
+    {
+      "prev_hop_id": "",
+      "hop_id": "2094",
+      "next_hop_id": "2095"
+    }
+  ]
+}
