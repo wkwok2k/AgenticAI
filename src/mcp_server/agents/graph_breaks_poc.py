@@ -2,18 +2,25 @@ import time
 print("\n*** INITIALIZING ***")
 start_time = time.time()
 import json, re
-from typing import TypedDict, List, Any
+from pathlib import Path
+from typing import TypedDict, List, Any, Tuple
 from langgraph.graph import StateGraph, END
 from mcp_server.agents.schemas import HopBreak, TraceEvent
 from mcp_server.agents.breaks_agent import explain_breaks
+from mcp_server.agents.lineage_agent import explain_lineage
 from mcp_server.agents.router_agent import route_question
 from mcp_server.agents.general_agent import answer_general_question
 from mcp_server.agents.session_types import SessionMemory
 from mcp_server.tools.txn_mcp_client import fetch_transactions
 from app.sql_client_async import get_top_breaks_sql
+from utils.sqlprocessor import build_paths_from_rows, iter_hops_from_json_file
 from utils.session_store import load_session, save_session
 from fastapi.encoders import jsonable_encoder
 from utils.logconfig import step_log
+
+FEEDS_DIR = Path(__file__).resolve().parents[2] / "mcp_server" / "feeds"
+DEFAULT_FEED_NAME = "2052a~Loans"
+DEFAULT_AS_OF_DATE = "20251015"
 
 # --- LangGraph state definition ---
 class BreaksGraphState(TypedDict, total=False):
@@ -22,6 +29,9 @@ class BreaksGraphState(TypedDict, total=False):
     selected_tool: str
     routing_reason: str
     breaks: List[HopBreak]
+    lineage_rows: List[dict]
+    lineage_paths: List[str]
+    lineage_summary: str
     trace: List[TraceEvent]
     session: SessionMemory
 
@@ -39,8 +49,11 @@ def router_node(state: BreaksGraphState) -> BreaksGraphState:
     recent_text = "\n".join([f"{t.get('role','')}: {t.get('content','')}" for t in recent])
 
     routing = route_question(user_q, recent_turns=recent_text)
-    tool_name = routing.get ("tool _name", "general_qa")
-    reason = routing.get ("reason", "")
+    tool_name = routing.get("tool_name", "general_qa")
+    if tool_name not in {"get_top_breaks", "general_qa", "get_lineage"}:
+        tool_name = "general_qa"
+
+    reason = routing.get("reason", "")
 
     trace.append(
         {
@@ -68,9 +81,70 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
 
     user_q = state["user_question"]
     trace: List[TraceEvent] = state.get("trace", [])
+    selected_tool = state.get("selected_tool", "get_top_breaks")
 
-    breaks: List[HopBreak] = await get_top_breaks_sql()  # ✅ await the async function
-    print(breaks)
+    session = state.get("session", {}) or {}
+    session.setdefault("last_tool_outputs", {})
+
+    lineage_rows: List[dict] = []
+    lineage_paths: List[str] = []
+    lineage_summary: str | None = None
+
+    if selected_tool == "get_lineage":
+        feed_name, as_of_date = _resolve_lineage_source(state, session)
+        lineage_rows = _load_lineage_rows(feed_name, as_of_date)
+        lineage_paths = [" >>> ".join(p) for p in build_paths_from_rows(lineage_rows)] if lineage_rows else []
+
+        trace.append(
+            {
+                "node": "Breaks Analysis Agent",
+                "stage": "tool_call",
+                "message": "Fetched hop lineage rows for diagramming.",
+                "extra": {
+                    "feed_name": feed_name,
+                    "as_of_date": as_of_date,
+                    "row_count": len(lineage_rows),
+                    "path_examples": lineage_paths[:3],
+                },
+            }
+        )
+
+        if lineage_rows:
+            lineage_summary = explain_lineage(user_q, lineage_rows)
+            trace.append(
+                {
+                    "node": "Breaks analysis agent",
+                    "stage": "llm_analysis",
+                    "message": "Generated lineage diagram and commentary.",
+                    "extra": {
+                        "preview": lineage_summary[:500] + ("..." if len(lineage_summary) > 500 else ""),
+                        "path_examples": lineage_paths[:3],
+                    },
+                }
+            )
+        else:
+            lineage_summary = "No lineage data was found for the requested feed/date."
+
+        session["last_tool_outputs"]["lineage"] = {
+            "rows": lineage_rows,
+            "paths": lineage_paths,
+            "summary": lineage_summary,
+        }
+
+        elapsed = time.time() - start_time
+        step_log(f"AgenticAI - breaks_node: Completed", elapsed)
+
+        return {
+            **state,
+            "analysis": lineage_summary or "",
+            "lineage_rows": lineage_rows,
+            "lineage_paths": lineage_paths,
+            "lineage_summary": lineage_summary or "",
+            "trace": trace,
+            "session": session,
+        }
+
+    breaks: List[HopBreak] = await get_top_breaks_sql() or []  # ✅ await the async function
 
     hop_ids = [
         b.get("hop_id")
@@ -85,8 +159,6 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
     })
 
     # (optional) store in session so you can see it in your logs
-    session = state.get("session", {}) or {}
-    session.setdefault("last_tool_outputs", {})
     session["last_tool_outputs"]["breaks"] = breaks
 
     # Debug trace entry so you can see what tool we think we have
@@ -156,7 +228,7 @@ async def investigator_node(state: BreaksGraphState) -> BreaksGraphState:
 def general_qa_node(state: BreaksGraphState) -> BreaksGraphState:
     user_q = state["user_question"]
     trace: List[TraceEvent] = state.get("trace", [])
-    session = state.get("session", ())
+    session = state.get("session", {}) or {}
 
     turns = session.get("turns", [])
     recent = turns[-6:]
@@ -236,7 +308,7 @@ async def handle_user_turn(user_id: str, session_id: str, user_question: str) ->
     state_session = state.get("session") or {}
     mem.update(state_session)
     mem.setdefault("turns", [])
-    mem.setdefault("last_tool_output", {})
+    mem.setdefault("last_tool_outputs", {})
 
     mem["turns"].append(
         {
@@ -247,6 +319,14 @@ async def handle_user_turn(user_id: str, session_id: str, user_question: str) ->
     )
     mem["last_answer"] = assistant_answer
     mem["last_agent"] = state.get("selected_tool") or mem.get("last_agent", "")
+    if "breaks" in state and state["breaks"] is not None:
+        mem["last_tool_outputs"]["breaks"] = _to_jsonable(state["breaks"])
+    if "lineage_paths" in state and state["lineage_paths"] is not None:
+        mem["last_tool_outputs"]["lineage_paths"] = _to_jsonable(state["lineage_paths"])
+    if "lineage_rows" in state and state["lineage_rows"] is not None:
+        mem["last_tool_outputs"]["lineage_rows"] = _to_jsonable(state["lineage_rows"])
+    if "lineage_summary" in state and state["lineage_summary"]:
+        mem["last_tool_outputs"]["lineage_summary"] = state["lineage_summary"]
 
     # If you store anything else later (lineage diagrams, exposures, etc...), run it through _to_jsonable as well.
     # Save session (must be JSON serializable)
@@ -273,10 +353,30 @@ def _split_explanation_and_commentary(text: str) -> tuple[str, str]:
     return explanation, commentary
 
 def _route_next(state: BreaksGraphState) -> str:
-    return "breaks_analysis" if state.get("selected_tool") == "get_top_breaks" else "general_qa"
+    return "breaks_analysis" if state.get("selected_tool") in {"get_top_breaks", "get_lineage"} else "general_qa"
 
 def _to_jsonable(obj: Any) -> Any:
     return jsonable_encoder(obj)
+
+def _resolve_lineage_source(state: BreaksGraphState, session: SessionMemory) -> Tuple[str, str]:
+    """
+    Determine which feed/as_of_date to use for lineage. Defaults fall back to a sample feed file.
+    """
+    feed_name = state.get("feed_name") or session.get("feed_name") or DEFAULT_FEED_NAME
+    as_of_date = state.get("recon_run_date") or session.get("recon_run_date") or DEFAULT_AS_OF_DATE
+    return str(feed_name), str(as_of_date)
+
+def _load_lineage_rows(feed_name: str, as_of_date: str) -> List[dict]:
+    file_path = FEEDS_DIR / f"hops_{feed_name}_{as_of_date}.json"
+    if not file_path.exists():
+        step_log(f"Lineage file not found: {file_path}", 0)
+        return []
+
+    try:
+        return list(iter_hops_from_json_file(str(file_path)))
+    except Exception as exc:  # noqa: BLE001
+        step_log(f"Failed to read lineage file {file_path}: {exc}", 0)
+        return []
 
 # ----------- Non-streaming runner (optional) ----------
 def run_breaks_poc(user_question: str) -> BreaksGraphState:
