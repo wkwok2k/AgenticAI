@@ -29,7 +29,6 @@ class BreaksGraphState(TypedDict, total=False):
     selected_tool: str
     routing_reason: str
     breaks: List[HopBreak]
-    lineage_rows: List[dict]
     lineage_paths: List[str]
     lineage_summary: str
     trace: List[TraceEvent]
@@ -86,7 +85,6 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
     session = state.get("session", {}) or {}
     session.setdefault("last_tool_outputs", {})
 
-    lineage_rows: List[dict] = []
     lineage_paths: List[str] = []
     lineage_summary: str | None = None
 
@@ -126,7 +124,6 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
             lineage_summary = "No lineage data was found for the requested feed/date."
 
         session["last_tool_outputs"]["lineage"] = {
-            "rows": lineage_rows,
             "paths": lineage_paths,
             "summary": lineage_summary,
         }
@@ -137,7 +134,6 @@ async def breaks_node(state: BreaksGraphState) -> BreaksGraphState:
         return {
             **state,
             "analysis": lineage_summary or "",
-            "lineage_rows": lineage_rows,
             "lineage_paths": lineage_paths,
             "lineage_summary": lineage_summary or "",
             "trace": trace,
@@ -323,8 +319,6 @@ async def handle_user_turn(user_id: str, session_id: str, user_question: str) ->
         mem["last_tool_outputs"]["breaks"] = _to_jsonable(state["breaks"])
     if "lineage_paths" in state and state["lineage_paths"] is not None:
         mem["last_tool_outputs"]["lineage_paths"] = _to_jsonable(state["lineage_paths"])
-    if "lineage_rows" in state and state["lineage_rows"] is not None:
-        mem["last_tool_outputs"]["lineage_rows"] = _to_jsonable(state["lineage_rows"])
     if "lineage_summary" in state and state["lineage_summary"]:
         mem["last_tool_outputs"]["lineage_summary"] = state["lineage_summary"]
 
