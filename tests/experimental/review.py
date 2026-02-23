@@ -5,6 +5,29 @@ import yaml
 
 #---- Contig----
 DEFAULT_CONFIG_DIR = Path("src/agenticai/configs/sql/analysis")
+EXPOSURE_FILE_PATH = Path(__file__).with_name("exposure.yml")
+SPARK_BOOTSTRAP = (
+    "from pyspark.sql import SparkSession\n"
+    "spark = SparkSession.builder\n"
+    '   .appName("Update Break Summary with Exposure Amt")\n'
+    "   .getOrCreate()"
+)
+MERGE_STATEMENT = (
+    "spark.sql(\"\"\"\n"
+    "MERGE INTO om_onerec_break_summary AS target\n"
+    "USING (\n"
+    "    SELECT hierarchy_path, recon_run_date, hop_id, exposure_amt\n"
+    "    FROM approved_exposure_updates\n"
+    "    WHERE post_processing_summary = 'Y'\n"
+    ") AS source\n"
+    "ON target.hierarchy_path = source.hierarchy_path\n"
+    "AND target.recon_run_date = source.recon_run_date\n"
+    "AND target.hop_id = source.hop_id\n"
+    "AND target.post_processing_summary = 'Y'\n"
+    "WHEN MATCHED THEN\n"
+    "    UPDATE SET target.exposure_amt = source.exposure_amt\n"
+    "\"\"\")"
+)
 
 #---- Helpers ----
 @st.cache_data(show_spinner=False)
@@ -14,7 +37,7 @@ def discover_yaml_files(root: Path) -> Dict[str, Path]:
     if not root.exists():
         return files
 
-    for p in root.rglob("*.ym|"):
+    for p in root.rglob("*.yml"):
         files[p.stem] = p
     for p in root.rglob("*.yaml"):
         files[p.stem] = p
@@ -25,10 +48,51 @@ def discover_yaml_files(root: Path) -> Dict[str, Path]:
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
-def stem_to_report_name(stern: str) -> str:
+def stem_to_report_name(stem: str) -> str:
     """If your convention is analysis_<report>.yml strip leading ‘analysis.’ so dropdown shows ‘2052a -Loans’. Otherwise it will just show the stem."""
     prefix = "analysis_"
     return stem[len(prefix) :] if stem.startswith(prefix) else stem
+
+def append_merge_to_exposure_queue() -> Tuple[bool, bool]:
+    """
+    Appends merge statement into `queued` in exposure.yml.
+    Returns (was_appended, file_created).
+    """
+    file_created = not EXPOSURE_FILE_PATH.exists()
+    payload: Dict[str, object] = {}
+
+    if EXPOSURE_FILE_PATH.exists():
+        try:
+            parsed = yaml.safe_load(EXPOSURE_FILE_PATH.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                payload = parsed
+        except Exception:
+            payload = {}
+
+    queued = payload.get("queued")
+    if not isinstance(queued, list):
+        queued_list: List[str] = []
+    else:
+        queued_list = [str(item) for item in queued]
+
+    if file_created and SPARK_BOOTSTRAP not in queued_list:
+        queued_list.append(SPARK_BOOTSTRAP)
+
+    if MERGE_STATEMENT in queued_list:
+        payload["queued"] = queued_list
+        EXPOSURE_FILE_PATH.write_text(
+            yaml.safe_dump(payload, sort_keys=False, allow_unicode=False),
+            encoding="utf-8",
+        )
+        return False, file_created
+
+    queued_list.append(MERGE_STATEMENT)
+    payload["queued"] = queued_list
+    EXPOSURE_FILE_PATH.write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=False),
+        encoding="utf-8",
+    )
+    return True, file_created
 
 def report_name_to_stem(report_name: str, available_stems: List[str]) -> Optional[str]:
     """
@@ -75,11 +139,20 @@ with st.sidebar:
 
     # st.caption("Tip: filenames like "analysis_2052a~Loans.yml" will show as "2052a~Loans" in the dropdown.")
     st.header("Approval for break_summary update")
+    previous_approve = st.session_state.get("_approve_previous_value", False)
     approve = st.checkbox("Approve", key="approve_checkbox")
     reject = st.checkbox ("Reject", key="reject_checkbox")
 
-    if approve:
-      st.sidebar.success("Queued for batch update.")
+    if approve and not previous_approve:
+        appended, created = append_merge_to_exposure_queue()
+        if appended and created:
+            st.sidebar.success("Queued for batch update. Created exposure.yml and appended merge statement once.")
+        elif appended:
+            st.sidebar.success("Queued for batch update. Appended merge statement once.")
+        else:
+            st.sidebar.info("Merge statement already exists in exposure.yml queued list. Skipped duplicate append.")
+
+    st.session_state["_approve_previous_value"] = approve
 
     if reject:
         # st.sidebar.error("Please provide context."]
