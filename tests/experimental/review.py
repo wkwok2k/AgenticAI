@@ -94,6 +94,12 @@ def append_merge_to_exposure_queue() -> Tuple[bool, bool]:
     )
     return True, file_created
 
+def reset_approval_controls() -> None:
+    st.session_state["approve_checkbox"] = False
+    st.session_state["reject_checkbox"] = False
+    st.session_state["_approve_previous_value"] = False
+    st.session_state["rejection_reason"] = ""
+
 def report_name_to_stem(report_name: str, available_stems: List[str]) -> Optional[str]:
     """
     Given '2052a~Loans', find matching stem:
@@ -216,6 +222,7 @@ with col_load:
     load_clicked = st.button(
         "Load",
         key="load_button_unique_key",
+        on_click=reset_approval_controls,
         use_container_width= True,
     )
 
@@ -223,6 +230,7 @@ with col_ref:
     refresh_clicked = st.button(
         "I",
         key="refresh_button_unique_key",
+        on_click=reset_approval_controls,
         use_container_width=True,
         help="Refresh file list",
     )
